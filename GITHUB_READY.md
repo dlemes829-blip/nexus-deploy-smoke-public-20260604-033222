@@ -6,7 +6,7 @@ Projeto preparado pelo Agent Nexus para subir ao GitHub.
 
 - Nome: Create tiny static landing page called Nexus Deploy Sm
 - ID: proj_create-tiny-static-landing-page-called-nexus-dep_b43cd728
-- Visibilidade sugerida: private
+- Visibilidade sugerida: public
 
 ## Segurança
 
@@ -20,5 +20,5 @@ Projeto preparado pelo Agent Nexus para subir ao GitHub.
 git init
 git add .
 git commit -m "Initial Agent Nexus project"
-gh repo create nexus-deploy-smoke-20260604-031943 --private --source . --remote origin --push
+gh repo create nexus-deploy-smoke-public-20260604-033222 --public --source . --remote origin --push
 ```
