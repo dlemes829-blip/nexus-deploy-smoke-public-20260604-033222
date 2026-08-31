@@ -1,7 +1,8 @@
-import React,{useEffect,useMemo,useRef,useState}from'react';
+import React,{useEffect,useRef,useState}from'react';
 import{createRoot}from'react-dom/client';
 import L from'leaflet';
 import'leaflet/dist/leaflet.css';
+import'./style.css';
 
 const BASE=[
 {id:'luciane',label:'Luciane',address:'Rua Orlando Marcondes, Ponta Grossa - PR, Brasil',type:'start'},
@@ -13,7 +14,7 @@ const cleanVoice=t=>String(t||'').replace(/[\p{Extended_Pictographic}\uFE0F\u200
 const km=m=>Number.isFinite(m)?`${(m/1000).toFixed(1)} km`:'—';
 const mins=s=>Number.isFinite(s)?`${Math.max(1,Math.round(s/60))} min`:'—';
 const reverse=a=>[...a].reverse().map((x,i,z)=>({...x,type:i===0?'start':i===z.length-1?'end':'stop'}));
-const defaults=()=>({ida:BASE.map(x=>({...x,confirmed:false})),volta:reverse(BASE.map(x=>({...x,confirmed:false}))});
+const defaults=()=>({ida:BASE.map(x=>({...x,confirmed:false})),volta:reverse(BASE.map(x=>({...x,confirmed:false})))});
 const canonicalById=Object.fromEntries(BASE.map(x=>[x.id,x]));
 const normalize=t=>{
  const d=defaults();
@@ -51,7 +52,7 @@ const meters=(a,b)=>{
 function App(){
  const room=new URLSearchParams(location.search).get('sala')||'trabalho-daniel';
  const initial=()=>{try{return normalize(JSON.parse(localStorage.getItem('rota-fixed-v7'))||JSON.parse(localStorage.getItem('rota-fixed-v6')))}catch{return defaults()}};
- const[trips,setTrips]=useState(initial),[dir,setDir]=useState('ida'),[route,setRoute]=useState(null),[routeStops,setRouteStops]=useState([]),[busy,setBusy]=useState(false),[status,setStatus]=useState('planejando'),[gps,setGps]=useState(null),[online,setOnline]=useState(1),[toast,setToast]=useState(''),[editing,setEditing]=useState(false),[menu,setMenu]=useState(false),[follow,setFollow]=useState(true),[nextIndex,setNextIndex]=useState(1),[gpsActive,setGpsActive]=useState(false),[lastFixAt,setLastFixAt]=useState(null);
+ const[trips,setTrips]=useState(initial),[dir,setDir]=useState('ida'),[route,setRoute]=useState(null),[routeStops,setRouteStops]=useState([]),[busy,setBusy]=useState(false),[status,setStatus]=useState('planejando'),[gps,setGps]=useState(null),[online,setOnline]=useState(1),[toast,setToast]=useState(''),[editing,setEditing]=useState(false),[menu,setMenu]=useState(false),[follow,setFollow]=useState(true),[nextIndex,setNextIndex]=useState(1),[lastFixAt,setLastFixAt]=useState(null);
  const map=useRef(),layer=useRef(),car=useRef(),accuracyCircle=useRef(),ws=useRef(),watch=useRef(),auto=useRef(false),lastAccepted=useRef(null),lastRaw=useRef(null),arrived=useRef(new Set());
  const stops=trips[dir]||[];
  const nextStop=routeStops[nextIndex]||null;
@@ -163,7 +164,7 @@ function App(){
   if(!navigator.geolocation){flash('GPS indisponível neste aparelho.');return false}
   if(watch.current)return true;
   watch.current=navigator.geolocation.watchPosition(acceptGps,()=>flash('Sinal de GPS indisponível. Verifique a permissão de localização.'),{enableHighAccuracy:true,maximumAge:0,timeout:15000});
-  setGpsActive(true);setFollow(true);return true;
+  setFollow(true);return true;
  };
  const start=async()=>{
   let r=route;if(!r)r=await calculate(true);if(!r)return;
