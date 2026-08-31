@@ -1,54 +1,13 @@
 import express from 'express';
-import { createServer } from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const app = express();
-app.disable('x-powered-by');
-app.use((req,res,next)=>{
-  res.setHeader('X-Content-Type-Options','nosniff');
-  res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy','geolocation=(self), microphone=(), camera=()');
-  next();
-});
-app.use(express.static(path.join(__dirname,'dist'), { maxAge: '1h' }));
-app.get('/health',(req,res)=>res.json({ok:true,service:'Rota Daniel',time:new Date().toISOString()}));
-app.use((req,res)=>res.sendFile(path.join(__dirname,'dist','index.html')));
-
-const server=createServer(app);
-const wss=new WebSocketServer({server,path:'/ws'});
-const rooms=new Map();
-const getRoom=id=>{if(!rooms.has(id))rooms.set(id,{clients:new Set(),state:null,messages:[],gps:null,status:'planejando'});return rooms.get(id)};
-const broadcast=(room,payload,except=null)=>{const data=JSON.stringify(payload);for(const c of room.clients){if(c!==except&&c.readyState===WebSocket.OPEN)c.send(data)}};
-const presence=room=>broadcast(room,{type:'presence',count:room.clients.size});
-
-wss.on('connection',(ws,req)=>{
-  const u=new URL(req.url,'http://localhost');
-  const roomId=(u.searchParams.get('room')||'geral').slice(0,80);
-  const name=(u.searchParams.get('name')||'Passageiro').slice(0,40);
-  const room=getRoom(roomId); ws.roomId=roomId;ws.name=name;room.clients.add(ws);
-  ws.send(JSON.stringify({type:'snapshot',state:room.state,messages:room.messages.slice(-100),gps:room.gps,status:room.status,count:room.clients.size}));
-  broadcast(room,{type:'system',text:`${name} entrou na viagem.`,at:Date.now()},ws); presence(room);
-  ws.on('message',raw=>{
-    try{
-      const m=JSON.parse(raw.toString());
-      if(m.type==='message'){
-        const msg={id:String(m.id||Date.now()),name:String(m.name||name).slice(0,40),text:String(m.text||'').slice(0,1000),at:Date.now()};
-        if(msg.text){room.messages.push(msg);room.messages=room.messages.slice(-100);broadcast(room,{type:'message',message:msg});}
-      }
-      if(m.type==='gps'&&Number.isFinite(m.lat)&&Number.isFinite(m.lon)){
-        room.gps={lat:m.lat,lon:m.lon,accuracy:m.accuracy||null,speed:m.speed||null,heading:m.heading||null,at:Date.now(),name};
-        broadcast(room,{type:'gps',gps:room.gps});
-      }
-      if(m.type==='state'&&m.state){room.state=m.state;broadcast(room,{type:'state',state:room.state},ws);}
-      if(m.type==='status') {room.status=String(m.status||'planejando').slice(0,40);broadcast(room,{type:'status',status:room.status});}
-      if(m.type==='ping') ws.send(JSON.stringify({type:'pong',at:Date.now()}));
-    }catch{}
-  });
-  ws.on('close',()=>{room.clients.delete(ws);broadcast(room,{type:'system',text:`${name} saiu da viagem.`,at:Date.now()});presence(room);if(room.clients.size===0)setTimeout(()=>{if(room.clients.size===0)rooms.delete(roomId)},1000*60*60*3)});
-});
-
-const port=process.env.PORT||3000;
-server.listen(port,'0.0.0.0',()=>console.log(`Rota Daniel online na porta ${port}`));
+import {createServer} from 'http';
+import {WebSocketServer,WebSocket} from 'ws';
+import path from 'path';import{fileURLToPath}from'url';
+const __dirname=path.dirname(fileURLToPath(import.meta.url));const app=express();
+app.disable('x-powered-by');app.use((req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('Permissions-Policy','geolocation=(self), microphone=(), camera=()');next()});
+const cache=new Map();
+app.get('/api/search',async(req,res)=>{const q=String(req.query.q||'').trim().slice(0,180);if(q.length<3)return res.json([]);const key=q.toLowerCase();if(cache.has(key)&&Date.now()-cache.get(key).at<10*60*1000)return res.json(cache.get(key).data);try{const query=/ponta grossa/i.test(q)?q:`${q}, Ponta Grossa, Paraná, Brasil`;const url=`https://photon.komoot.io/api/?limit=6&lang=pt&q=${encodeURIComponent(query)}`;const r=await fetch(url,{headers:{'User-Agent':'RotaDaniel/3.0'}});if(!r.ok)throw new Error('search');const j=await r.json();let data=(j.features||[]).map(f=>{const p=f.properties||{},c=f.geometry?.coordinates||[];const parts=[p.name,p.street,p.housenumber,p.district,p.city,p.state].filter(Boolean);return{lat:c[1],lon:c[0],display:parts.join(', '),title:[p.name||p.street,p.housenumber].filter(Boolean).join(', '),subtitle:[p.district,p.city,p.state].filter(Boolean).join(' • ')}}).filter(x=>Number.isFinite(x.lat)&&Number.isFinite(x.lon));data=data.filter(x=>/Ponta Grossa/i.test(x.display)||/Ponta Grossa/i.test(x.subtitle));cache.set(key,{at:Date.now(),data});res.json(data)}catch{res.status(502).json([])}});
+app.use(express.static(path.join(__dirname,'dist'),{maxAge:'1h'}));app.get('/health',(req,res)=>res.json({ok:true,service:'Rota Daniel',version:'3.0.0',time:new Date().toISOString()}));app.use((req,res)=>res.sendFile(path.join(__dirname,'dist','index.html')));
+const server=createServer(app),wss=new WebSocketServer({server,path:'/ws'}),rooms=new Map();
+const getRoom=id=>{if(!rooms.has(id))rooms.set(id,{clients:new Set(),state:null,messages:[],gps:null,status:'planejando',notifications:[]});return rooms.get(id)};const broadcast=(room,payload,except=null)=>{const data=JSON.stringify(payload);for(const c of room.clients)if(c!==except&&c.readyState===WebSocket.OPEN)c.send(data)};const presence=room=>broadcast(room,{type:'presence',count:room.clients.size});
+wss.on('connection',(ws,req)=>{const u=new URL(req.url,'http://localhost'),roomId=(u.searchParams.get('room')||'geral').slice(0,80),name=(u.searchParams.get('name')||'Passageiro').slice(0,40),room=getRoom(roomId);room.clients.add(ws);ws.send(JSON.stringify({type:'snapshot',state:room.state,messages:room.messages.slice(-100),gps:room.gps,status:room.status,count:room.clients.size,notifications:room.notifications.slice(-20)}));presence(room);ws.on('message',raw=>{try{const m=JSON.parse(raw.toString());if(m.type==='message'){const msg={id:String(m.id||Date.now()),name:String(m.name||name).slice(0,40),text:String(m.text||'').slice(0,1000),at:Date.now()};if(msg.text){room.messages.push(msg);room.messages=room.messages.slice(-100);broadcast(room,{type:'message',message:msg})}}if(m.type==='notification'){const n={id:String(m.id||Date.now()),text:String(m.text||'').slice(0,600),speak:Boolean(m.speak),from:name,at:Date.now()};if(n.text){room.notifications.push(n);room.notifications=room.notifications.slice(-20);broadcast(room,{type:'notification',notification:n},ws)}}if(m.type==='gps'&&Number.isFinite(m.lat)&&Number.isFinite(m.lon)){room.gps={lat:m.lat,lon:m.lon,accuracy:m.accuracy||null,speed:m.speed||null,heading:m.heading||null,at:Date.now(),name};broadcast(room,{type:'gps',gps:room.gps})}if(m.type==='state'&&m.state){room.state=m.state;broadcast(room,{type:'state',state:room.state},ws)}if(m.type==='status'){room.status=String(m.status||'planejando').slice(0,40);broadcast(room,{type:'status',status:room.status})}if(m.type==='ping')ws.send(JSON.stringify({type:'pong',at:Date.now()}))}catch{}});ws.on('close',()=>{room.clients.delete(ws);presence(room);if(room.clients.size===0)setTimeout(()=>{if(room.clients.size===0)rooms.delete(roomId)},1000*60*60*3)})});
+const port=process.env.PORT||3000;server.listen(port,'0.0.0.0',()=>console.log(`Rota Daniel v3 online na porta ${port}`));
