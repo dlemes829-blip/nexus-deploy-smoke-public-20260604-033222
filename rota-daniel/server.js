@@ -15,7 +15,7 @@ app.use((req,res,next)=>{
 });
 app.use(express.static(path.join(__dirname,'dist'), { maxAge: '1h' }));
 app.get('/health',(req,res)=>res.json({ok:true,service:'Rota Daniel',time:new Date().toISOString()}));
-app.get('*',(req,res)=>res.sendFile(path.join(__dirname,'dist','index.html')));
+app.use((req,res)=>res.sendFile(path.join(__dirname,'dist','index.html')));
 
 const server=createServer(app);
 const wss=new WebSocketServer({server,path:'/ws'});
