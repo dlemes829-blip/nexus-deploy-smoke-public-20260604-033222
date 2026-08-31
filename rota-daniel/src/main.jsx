@@ -11,7 +11,7 @@ const FIXED=[
 {id:'empresa',label:'Odonto Excellence São Francisco',address:'Rua Antonil, 100, Uvaranas, Ponta Grossa - PR, 84032-190, Brasil',lat:-25.10550,lon:-50.09820,type:'end',confirmed:true,fixed:true}
 ];
 const reverse=a=>[...a].reverse().map((x,i,z)=>({...x,type:i===0?'start':i===z.length-1?'end':'stop'}));
-const defaults=()=>({ida:FIXED.map(x=>({...x})),volta:reverse(FIXED.map(x=>({...x}))});
+const defaults=()=>({ida:FIXED.map(x=>({...x})),volta:reverse(FIXED.map(x=>({...x})))});
 const cleanVoice=t=>String(t||'').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu,'').replace(/\s{2,}/g,' ').trim();
 const km=m=>Number.isFinite(m)?`${(m/1000).toFixed(1)} km`:'—';
 const minText=s=>Number.isFinite(s)?`${Math.max(1,Math.round(s/60))} min`:'—';
